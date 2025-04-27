@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=brokerapp
+      - JWT_SECRET=your-secret-key-change-in-production
+      - ACCESS_TOKEN_DURATION=5m
+      - REFRESH_TOKEN_DURATION=24h
+      - DB_MAX_OPEN_CONNS=25
+      - DB_MAX_IDLE_CONNS=25
+      - DB_CONN_MAX_LIFETIME=5m
+      - SERVER_PORT=8080
+    volumes:
+      - ./migrations:/app/migrations
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - broker-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: brokerapp-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: brokerapp
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - broker-network
+    restart: unless-stopped
+
+networks:
+  broker-network:
+    driver: bridge
+
+volumes:
+  mysql_data: 
